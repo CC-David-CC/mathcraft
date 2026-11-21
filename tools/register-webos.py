@@ -60,7 +60,7 @@ BUILD="""// MathCraft has an independent app checkout and a browser-local Octave
     }
     await registerFiles(id, bundle);
     // The corresponding source is available separately from the startup payload.
-    for (const name of ['source-3996ed4.tar.xz', 'PROVENANCE.md','GNU-GPL-3.txt','WASM-wrapper.LICENSE','SHA256SUMS']) {
+    for (const name of ['source-3996ed4.tar.xz', 'PROVENANCE.md','GNU-GPL-3.txt','WASM-wrapper.LICENSE','EMSCRIPTEN.LICENSE','prepare-no-eval.mjs','SHA256SUMS']) {
       const source = appRoot + '/vendor/octave/' + name, bytes = await readFile(path.join(root, source));
       sourceInputs.set(source, hash(bytes));
       await put('assets/legal/mathcraft/' + name, bytes);
