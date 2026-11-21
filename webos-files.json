@@ -1,0 +1,22 @@
+[
+  "app.mjs",
+  "icon.svg",
+  "src/chart.mjs",
+  "src/files.mjs",
+  "src/kernel.mjs",
+  "src/octave-worker.js",
+  "src/style.css",
+  "src/view.mjs",
+  "src/worksheet.mjs",
+  "lab/mc_response.m",
+  "lab/mc_run.m",
+  "lab/mc_fit.m",
+  "lab/mc_script.m",
+  "lab/unbalance.m",
+  "examples/synthetic-run.csv",
+  "examples/inspect-response.m",
+  "vendor/octave/octave.js",
+  "vendor/octave/octave.data",
+  "vendor/octave/octave.wasm",
+  "vendor/octave/assert.m"
+]

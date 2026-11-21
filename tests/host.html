@@ -1,0 +1,37 @@
+<!doctype html><meta charset="utf-8"><title>MathCraft host contract check</title><output>Starting</output><div id="windows"></div><script type="module">
+import {mount} from '../app.mjs';
+const status=document.querySelector('output'), enc=new TextEncoder(), data=new Map(), owner='test-owner',session={};
+const assert=(x,msg)=>{if(!x)throw Error(msg);};
+const hash=async a=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',a))].map(v=>v.toString(16).padStart(2,'0')).join('');
+const api={
+  async read(k){const r=data.get(k);return {data:enc.encode(r.text),sha256:r.sha256};},
+  async version(k){if(!data.has(k))throw Object.assign(Error('not found'),{status:404});return data.get(k);},
+  async write(k,b,expected){assert((data.get(k)?.sha256??null)===expected,'Conflict');const buf=await b.arrayBuffer(),sha256=await hash(buf);data.set(k,{text:new TextDecoder().decode(buf),sha256});return {sha256};}
+};
+const windows=[];
+function open(launchContext){
+  const control=new AbortController(),w={launchContext},host={w,signal:control.signal,session:()=>session,
+    storage:{signedInSubject:()=>owner,accountFileContext:async()=>({owner,valid:()=>!control.signal.aborted,files:api}),pickAccountFile:async({foldersOnly})=>foldersOnly?'/':'/lab.mathcraft'},
+    ui:{confirm:async()=>true,prompt:async()=>'lab'},desktop:{updateAccountFileBinding(w,info){w.binding=info;}}};
+  const a=mount(host);assert(a.element instanceof HTMLElement,'mount returned synchronously');document.querySelector('#windows').append(a.element);
+  const get=k=>a.element.querySelector('[data-id="'+k+'"]');windows.push([a,control]);return {a,w,get,control};
+}
+const wait=async(fn)=>{const end=performance.now()+12000;while(!fn()){if(performance.now()>end)throw Error('Timed out waiting for '+fn);await new Promise(r=>setTimeout(r,25));}};
+try{
+  const one=open();await one.a.ready;assert(one.get('amp').textContent==='10','default');
+  one.get('pin').click();await wait(()=>one.a.lifecycle.snapshot().dirty);
+  one.get('damping').value='10';one.get('damping').dispatchEvent(new Event('input'));await wait(()=>one.get('amp').textContent==='5');
+  one.get('save').click();await wait(()=>one.w.binding?.sha256 && !one.a.lifecycle.snapshot().pending);
+  assert(!one.a.lifecycle.snapshot().dirty,'saved clean');const hash=one.w.binding.sha256;
+  const two=open({storage:'account',owner,path:'lab.mathcraft',sha256:hash});await two.a.ready;assert(two.get('amp').textContent==='5','reload');
+  two.get('replay').click();await wait(()=>two.get('verdict').textContent.includes('Replay matched'));
+  two.get('damping').value='5';two.get('damping').dispatchEvent(new Event('input'));await wait(()=>two.get('amp').textContent==='10');
+  assert(one.get('amp').textContent==='5','isolated windows');
+  let observed=0;const off=two.a.lifecycle.subscribe(()=>observed++);
+  two.get('unpin').click();await wait(()=>observed>0 && !two.a.lifecycle.snapshot().pending);off();
+  assert(await two.a.requestClose(),'close allowed');const lock=await two.a.lifecycle.quiesce();
+  assert(two.a.element.inert && two.a.lifecycle.commitClose(),'quiesced');lock.release();assert(!two.a.element.inert,'released');
+  for(const [app,control] of windows){control.abort();app.dispose();app.element.remove();}
+  status.textContent='PASS';
+}catch(e){status.textContent=e.stack;console.error(e);}
+</script>

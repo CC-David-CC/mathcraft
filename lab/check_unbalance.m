@@ -1,0 +1,21 @@
+% Run with: octave --quiet lab/check_unbalance.m
+addpath(fileparts(mfilename('fullpath')));
+p = struct('mass_kg',1,'stiffness_n_m',10000,'unbalance_g_mm',1000,'damping_ratio',0.05);
+nr = 60*100/(2*pi);
+[c, rows, s] = mc_run(p, 2200, [0;nr], [0;10]);
+assert(s(1),100/(2*pi),1e-11); assert(s(3),10,1e-10); assert(s(4),90,1e-10);
+assert(norm(rows(:,4)),0,1e-10);
+p.damping_ratio = 0.1; [a,ph]=unbalance(nr,p); assert(a,5,1e-10);
+rpm = [350;700;900;950;1000;1300;1800];
+meas=unbalance(rpm,p); [z,e]=mc_fit(p,rpm,meas);
+assert(z,0.1,1e-7); assert(e < 1e-6);
+p.damping_ratio=0.05;
+[a,ph]=unbalance([0;nr/2;nr*2;nr*1e5],p);
+assert(a(1)==0 && isnan(ph(1)));
+assert(a(2),0.25/hypot(0.75,0.05),1e-10);
+assert(ph(3),180-atan(0.2/3)*180/pi,1e-10);
+assert(a(4),1,1e-8);
+p.unbalance_g_mm=2000; doubled=unbalance(nr/2,p);assert(doubled,2*a(2),1e-10);
+p.damping_ratio=0; [a,ph]=unbalance(nr,p); assert(isnan(a) && isnan(ph));
+p.unbalance_g_mm=0; [a,ph]=unbalance(nr,p); assert(a==0 && isnan(ph));
+disp('Rotating-unbalance reference checks passed.');

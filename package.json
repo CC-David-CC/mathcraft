@@ -1,0 +1,17 @@
+{
+  "name": "mathcraft",
+  "version": "0.1.0",
+  "description": "Browser-native GNU Octave worksheet for the rotating-unbalance lab",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node tools/serve.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "test:browser": "python3 tests/browser_smoke.py",
+    "verify:vendor": "node tools/verify-vendor.mjs",
+    "test:registration": "python3 tests/registration_test.py"
+  }
+}
