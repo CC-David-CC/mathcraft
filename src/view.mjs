@@ -1,13 +1,24 @@
 export const markup = `
 <header class="mc-head">
   <div class="mc-brand"><span class="mc-mark" aria-hidden="true">∿</span><b>MathCraft</b></div>
-  <div class="mc-tools"><button data-id="open">Open</button><button class="mc-primary" data-id="save">Save worksheet</button>
+  <div class="mc-tools"><button data-id="library" hidden>Labs</button><button data-id="open">Open</button><button class="mc-primary" data-id="save">Save worksheet</button>
   <details class="mc-menu"><summary aria-label="More file actions">•••</summary><div>
   <button data-id="as">Save as…</button><button data-id="download">Download worksheet</button><button data-id="upload">Import worksheet…</button>
   </div></details></div>
 </header>
 <div class="mc-body">
-  <div class="mc-title"><div><div class="mc-kicker">VIBRATIONS LAB</div><h1>Rotating unbalance</h1><p>Steady-state response to a rotating eccentric mass.</p></div><span class="mc-engine" data-id="engine">Starting Octave…</span></div>
+  <section data-id="libraryPage"><h1>Lab library</h1><div class="mc-row mc-library-actions"><button class="mc-primary" data-id="blank">New Octave lab</button><button data-id="startImport">Import .m files…</button><button data-id="accountCode">Import .m from Files…</button></div><div class="mc-catalog" data-id="catalog"></div></section>
+  <section data-id="codePage" class="mc-card mc-pad" hidden>
+    <label>Lab name <input data-id="codeTitle" maxlength="120"></label>
+    <div class="mc-row mc-library-actions"><label>Editing <select data-id="codeFile"></select></label><label>Run from <select data-id="entry"></select></label>
+      <button data-id="addCode">Import .m files…</button><button data-id="addAccount">Import from Files…</button><button data-id="exportCode">Export .m</button></div>
+    <textarea aria-label="Octave source code" data-id="code" spellcheck="false"></textarea>
+    <div class="mc-row"><button data-id="execute" class="mc-primary">Run lab</button><button data-id="halt" disabled>Stop</button></div>
+    <pre data-id="codeOutput" aria-label="Lab output" aria-live="polite"></pre>
+    <canvas hidden data-id="plot" width="800" height="280" aria-label="Lab response plot"></canvas>
+    <small>Set lab_x and lab_y to numeric vectors to plot a response.</small>
+  </section>
+  <div data-id="rotorPage" hidden><div class="mc-title"><div><div class="mc-kicker">VIBRATIONS LAB</div><h1>Rotating unbalance</h1><p>Steady-state response to a rotating eccentric mass.</p></div><span class="mc-engine" data-id="engine">Starting Octave…</span></div>
   <div class="mc-tabs" role="group" aria-label="Worksheet views"><button data-tab="lab" aria-pressed="true">Experiment</button><button data-tab="model" aria-pressed="false">Octave workspace</button></div>
   <section data-panel="lab" class="mc-layout">
     <aside class="mc-card mc-controls"><div class="mc-section"><h2>System parameters</h2></div>
@@ -41,7 +52,8 @@ export const markup = `
   <textarea data-id="script" aria-label="Octave scratch script" spellcheck="false"></textarea>
   <div class="mc-row"><button data-id="runscript" class="mc-primary">Run script</button><button data-id="stop">Stop interpreter</button></div>
   <pre data-id="stdout" aria-label="Octave output">Script output appears here.</pre></section></section>
+  </div>
   <div class="mc-message" role="status" aria-live="polite" data-id="status">Loading worksheet…</div>
 </div>
-<input hidden type="file" data-id="pickcsv" accept=".csv,text/csv"><input hidden type="file" data-id="picksheet" accept=".mathcraft,application/json"><input hidden type="file" data-id="pickmodel" accept=".m,text/plain"><input hidden type="file" data-id="pickscript" accept=".m,text/plain">
+<input hidden type="file" data-id="pickcode" accept=".m" multiple><input hidden type="file" data-id="pickcsv" accept=".csv,text/csv"><input hidden type="file" data-id="picksheet" accept=".mathcraft,application/json"><input hidden type="file" data-id="pickmodel" accept=".m,text/plain"><input hidden type="file" data-id="pickscript" accept=".m,text/plain">
 `;

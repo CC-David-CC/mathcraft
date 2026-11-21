@@ -1,14 +1,18 @@
 # MathCraft
 
-MathCraft is an independent browser application for working through a rotating-unbalance experiment. An editable GNU Octave function drives the graph, predictions at measured speeds, damping fit and reference replay. Calculations run on the user's machine. The runtime, source and examples are included.
+MathCraft is a browser-local GNU Octave lab workspace. Open a lab from the library, start a blank lab, or import your own Octave code. Each WebOS window can work on a different lab.
+
+**New Octave lab** opens a code editor. **Import .m files** accepts an entry script and helper functions together. Use **Editing** to choose a file and **Run from** to select the entry script. Signed-in users can also bring in code from account Files. Running a lab starts a fresh Octave worker. Printed results appear below the editor. Set `lab_x` and `lab_y` to numeric vectors to graph a response.
+
+**Save worksheet** keeps all code, the lab name and the entry script together in a `.mathcraft` file. Reopen it through Files or import a downloaded copy. Imported general code runs when you select **Run lab**. The library includes five editable teaching models with their assumptions in the source, plus the original rotating-unbalance experiment.
 
 ## Open it
 
 From the extracted `mathcraft` directory, run `npm start` with Node 20 or newer. Open **http://127.0.0.1:8788/**. No npm install or math server is needed. With Python alone, `python3 -m http.server 8788 --bind 127.0.0.1` serves the same app. Serve this directory over HTTP so the browser can load its modules and worker.
 
-## Try the experiment
+## Rotating Unbalance
 
-1. The default apparatus has a 1 kg vibrating mass, 10,000 N/m stiffness and 1,000 g·mm unbalance. At 5% damping, the predicted peak displacement at 954.93 rpm is 10 mm.
+1. Choose **Rotating Unbalance** from the library. The default apparatus has a 1 kg vibrating mass, 10,000 N/m stiffness and 1,000 g·mm unbalance. At 5% damping, the predicted peak displacement at 954.93 rpm is 10 mm.
 2. **Pin current run**. Change damping to **10%**. The green curve now gives 5 mm at the natural speed. The dashed curve retains the original settings. Switch to phase and inspect the 90° lag at that speed.
 3. **Fit damping to measurements**. The supplied 15-row example is synthetic, generated at 8% damping with small deterministic amplitude offsets. The fit gives approximately 7.9982% and an amplitude RMSE of 0.02313 mm.
 4. Use **Import CSV** for your own sweep. Select **Residuals**, inspect a point or read the table, then **Export residuals**. Each prediction uses the exact speed in its CSV row. The sweep limit controls the graph's horizontal extent.

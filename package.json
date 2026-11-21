@@ -1,7 +1,7 @@
 {
   "name": "mathcraft",
   "version": "0.1.0",
-  "description": "Browser-native GNU Octave worksheet for the rotating-unbalance lab",
+  "description": "Browser-native GNU Octave lab library and code workspace",
   "private": true,
   "type": "module",
   "engines": {

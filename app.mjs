@@ -1,8 +1,9 @@
 import {markup} from './src/view.mjs';
 import {makeChart} from './src/chart.mjs';
-import {accountFiles,download} from './src/files.mjs';
+import {labs} from './src/labs.mjs';
+import {accountFiles,download,sheetName} from './src/files.mjs';
 import {Kernel} from './src/kernel.mjs';
-import {ENGINE,LIMIT,boundedText,compareResults,defaultSheet,inputsOf,parseCSV,pin,readSheet,residualCSV,serialize} from './src/worksheet.mjs';
+import {codeSheet,ENGINE,LIMIT,boundedText,compareResults,defaultSheet,inputsOf,parseCSV,pin,readSheet,residualCSV,serialize} from './src/worksheet.mjs';
 
 const fmt=(v,d=4)=>Number.isFinite(v)?Number(v.toFixed(d)).toLocaleString('en-US',{maximumFractionDigits:d}):'—';
 const assets=name=>new URL(name,import.meta.url);
@@ -71,9 +72,31 @@ export function mount(host={}) {
     } catch(e){if(ticket===generation&&!signal.aborted){result=null;refresh();message(e.message,'error');}}
   }
   function schedule(){timer=setTimeout(()=>run(),120);}
+  function showPage(page) {
+    for(const name of ['library','rotor','code'])el[name+'Page'].hidden=name!==page;
+    const atHome=page==='library';
+    el.library.hidden=atHome;
+    for(const key of ['save','as','download'])el[key].hidden=atHome;
+    el.addAccount.hidden=el.accountCode.hidden=!files.hosted;
+  }
+  function displayCode(name=sheet.entry) {
+    for(const select of [el.codeFile,el.entry]){
+      select.replaceChildren(...sheet.files.map(file=>{
+        const option=doc.createElement('option');option.value=option.textContent=file.name;return option;
+      }));
+    }
+    el.codeFile.value=name;el.entry.value=sheet.entry;
+    el.code.value=sheet.files.find(file=>file.name===name).source;
+    el.codeTitle.value=sheet.title;
+  }
   function apply(next){
     sheet=next;dirty=false;rev++;el.verdict.textContent='';el.stdout.textContent='Script output appears here.';
-    populate();invalidate();changed();
+    clearTimeout(timer);generation++;actionTicket++;kernel.reset();for(const k of isolatedKernels)k.dispose();
+    el.halt.disabled=true;el.execute.disabled=false;el.plot.hidden=true;el.codeOutput.textContent='';
+    if(!next){showPage('library');message('');}
+    else if(next.version===2){showPage('code');displayCode();message('');}
+    else {showPage('rotor');populate();invalidate();}
+    changed();
   }
   function editControls(origin) {
     if(!sheet)return;
@@ -98,10 +121,10 @@ export function mount(host={}) {
   via(el.source,'input',()=>{if(sheet){sheet.source=el.source.value;dirtyEdit();invalidate();message('Model edited. Run model to recalculate.');}});
   via(el.script,'input',()=>{if(sheet){sheet.script=el.script.value;dirtyEdit();}});
   function click(id,fn){via(el[id],'click',()=>{element.querySelector('details').open=false;activity(()=>{
-    if(!sheet)throw Error('Worksheet is still starting.');return fn();
+    return fn();
   }).catch(e=>message(e.message,'error'));});}
-  function usable(){if(!controlsValid)throw Error('Correct the system parameters first.');}
-  function localSave(){usable();download(doc,'rotating-unbalance.mathcraft',serialize(sheet),'application/json');if(!files.hosted){dirty=false;changed();}message('Worksheet download created.');}
+  function usable(){if(sheet?.version===1&&!controlsValid)throw Error('Correct the system parameters first.');}
+  function localSave(){usable();download(doc,sheetName(sheet),serialize(sheet),'application/json');if(!files.hosted){dirty=false;changed();}message('Worksheet download created.');}
   async function save(as=false){
     if(!files.hosted)return localSave();
     usable();const r=rev,path=await files.save(sheet,as);
@@ -116,7 +139,8 @@ export function mount(host={}) {
     const before=rev;if(!target && !(await allowReplace()))return;
     if(before!==rev)throw Error('Worksheet changed while choosing a file.');
     const path=await files.open({target,revision:before,getRevision:()=>rev,apply});
-    if(path)await run('Opened '+path+' and recalculated.');
+    if(path && sheet.version===1)await run('Opened '+path+' and recalculated.');
+    else if(path)message('Opened '+path+'.');
   }
   click('open',()=>files.hosted?openAccount():el.picksheet.click());click('save',()=>save());click('as',()=>save(true));click('download',localSave);click('upload',()=>el.picksheet.click());
   click('csv',()=>el.pickcsv.click());click('loadmodel',()=>el.pickmodel.click());click('loadscript',()=>el.pickscript.click());
@@ -168,7 +192,7 @@ export function mount(host={}) {
   function stop(){clearTimeout(timer);generation++;actionTicket++;kernel.reset();for(const k of isolatedKernels)k.dispose();el.stdout.textContent='Stopped.';message('Interpreter stopped. Run a model or script to restart it.');}
   click('stop',stop);
   async function importFile(kind,file) {
-    if(!file||!sheet)return;
+    if(!file)return;
     const before=rev,limit=kind==='sheet'?LIMIT:kind==='csv'?512*1024:64*1024;
     if(file.size>limit)throw Error('File exceeds the size limit.');
     const text=boundedText(await file.text(),limit,'File');
@@ -176,7 +200,7 @@ export function mount(host={}) {
     if(kind==='sheet'){
       const next=readSheet(text);if(!(await allowReplace()))return;
       if(signal.aborted||rev!==before)throw Error('Worksheet edited during open.');
-      files.detach();apply(next);await run('Opened worksheet and recalculated.');return;
+      files.detach();apply(next);if(next.version===1)await run('Opened worksheet and recalculated.');else message('Opened worksheet.');return;
     }
     if(kind==='csv'){const rows=parseCSV(text);sheet.dataset={name:boundedText(file.name,256,'File name'),csv:text};observations=rows;dirtyEdit();invalidate();await run();return;}
     if(kind==='model'){el.source.value=text;el.source.dispatchEvent(new Event('input'));await run();return;}
@@ -186,12 +210,99 @@ export function mount(host={}) {
     const input=el['pick'+kind];via(input,'change',()=>{const f=input.files[0];input.value='';activity(()=>importFile(kind,f)).catch(e=>message(e.message,'error'));});
   }
   via(element,'dragover',e=>{if(e.dataTransfer.types.includes('Files'))e.preventDefault();});
-  via(element,'drop',e=>{if(!e.dataTransfer.files.length)return;e.preventDefault();const f=e.dataTransfer.files[0];if(/\.(csv|mathcraft)$/i.test(f.name))activity(()=>importFile(/\.csv$/i.test(f.name)?'csv':'sheet',f)).catch(err=>message(err.message,'error'));else message('Drop a CSV or .mathcraft worksheet.','error');});
+  function current(revision){if(signal.aborted||rev!==revision)throw Error('The worksheet changed. Try again.');}
+  async function replace(next) {
+    const revision=rev;
+    if(!await allowReplace())return false;
+    current(revision);files.detach();apply(next);return true;
+  }
+  async function chooseLab(id) {
+    if(id==='rotor'){
+      const revision=rev;
+      const [model,script,csv]=await Promise.all(['./lab/unbalance.m','./examples/inspect-response.m','./examples/synthetic-run.csv'].map(n=>readAsset(n,signal)));
+      current(revision);
+      if(await replace(defaultSheet(model,script,csv)))await run();
+    }else {
+      const lab=labs.find(row=>row[0]===id);
+      await replace(codeSheet(lab?.[1]??'Untitled lab',[{name:'main.m',source:lab?.[3]??''}]));
+    }
+  }
+  for(const [id,title,description] of labs){
+    const button=doc.createElement('button');button.dataset.lab=id;
+    const label=doc.createElement('strong');label.textContent=title;
+    const detail=doc.createElement('span');detail.textContent=description;
+    button.append(label,detail);el.catalog.append(button);
+    via(button,'click',()=>activity(()=>chooseLab(id)).catch(e=>message(e.message,'error')));
+  }
+  click('blank',()=>chooseLab());click('library',()=>replace(null));
+  via(el.codeTitle,'input',()=>{sheet.title=el.codeTitle.value;dirtyEdit();});
+  via(el.codeFile,'change',()=>displayCode(el.codeFile.value));
+  via(el.entry,'change',()=>{sheet.entry=el.entry.value;dirtyEdit();});
+  via(el.code,'input',()=>{sheet.files.find(f=>f.name===el.codeFile.value).source=el.code.value;dirtyEdit();});
+  click('exportCode',()=>download(doc,el.codeFile.value,el.code.value));
+  function drawPlot(points) {
+    const canvas=el.plot;canvas.hidden=!points.some(p=>p.every(Number.isFinite));
+    if(canvas.hidden)return;
+    const finite=points.filter(p=>p.every(Number.isFinite));
+    const xs=finite.map(p=>p[0]),ys=finite.map(p=>p[1]);
+    const left=Math.min(...xs),right=Math.max(...xs),low=Math.min(...ys),high=Math.max(...ys);
+    const ctx=canvas.getContext('2d');ctx.clearRect(0,0,800,280);ctx.font='14px sans-serif';ctx.fillStyle='#274b41';
+    ctx.fillText(fmt(left),50,274);ctx.textAlign='right';ctx.fillText(fmt(right),790,274);ctx.textAlign='left';
+    ctx.fillText(fmt(high),2,20);ctx.fillText(fmt(low),2,250);
+    ctx.strokeStyle='#bccdc8';ctx.strokeRect(50,10,740,244);ctx.strokeStyle='#00776e';ctx.lineWidth=2;ctx.beginPath();
+    let first=true;
+    for(const [x,y] of points){
+      if(!Number.isFinite(x)||!Number.isFinite(y)){first=true;continue;}
+      const px=50+(right===left?0.5:(x-left)/(right-left))*740,py=254-(high===low?0.5:(y-low)/(high-low))*244;
+      if(first)ctx.moveTo(px,py);else ctx.lineTo(px,py);first=false;
+    }
+    ctx.stroke();ctx.lineWidth=1;
+  }
+  click('execute',async()=>{
+    const project=codeSheet(sheet.title,sheet.files,sheet.entry),job=++actionTicket,version=rev;
+    el.codeOutput.textContent='Running…';el.plot.hidden=true;el.execute.disabled=true;el.halt.disabled=false;
+    try {
+      const result=await isolated('code',project,text=>{if(job===actionTicket&&!signal.aborted)el.codeOutput.textContent=text;});
+      if(job!==actionTicket||signal.aborted)return;
+      el.codeOutput.textContent=result.text||'(completed without output)';drawPlot(result.points);
+      message(version===rev?'Lab finished.':'Lab finished using the source before your latest edit.');
+    } catch(e){if(job===actionTicket&&!signal.aborted){el.codeOutput.textContent=e.message;message('Lab execution failed.','error');}}
+    finally{if(job===actionTicket){el.execute.disabled=false;el.halt.disabled=true;}}
+  });
+  click('halt',()=>{stop();el.codeOutput.textContent='Stopped.';el.execute.disabled=false;el.halt.disabled=true;});
+  async function addCode(incoming,version){
+    current(version);if(!incoming.length)return;
+    const existing=sheet?.version===2?sheet:null;
+    const empty=existing?.files.length===1 && existing.entry==='main.m' && !existing.files[0].source;
+    const keep=existing&&!empty;
+    const next=codeSheet(existing?.title??incoming[0].name.slice(0,-2),[...(keep?existing.files:[]),...incoming],keep?existing.entry:incoming[0].name);
+    if(existing){sheet=next;displayCode(incoming[0].name);}
+    else if(!await replace(next))return;
+    dirtyEdit();message('Imported '+incoming.map(f=>f.name).join(', ')+'.');
+  }
+  async function importLocal(list){
+    const version=rev;
+    if(list.length>32||list.some(f=>f.size>65536))throw Error('Import up to 32 .m files of at most 64 KiB each.');
+    await addCode(await Promise.all(list.map(async f=>({name:f.name,source:await f.text()}))),version);
+  }
+  for(const id of ['startImport','addCode'])click(id,()=>el.pickcode.click());
+  for(const id of ['accountCode','addAccount'])click(id,async()=>{
+    const version=rev,file=await files.importCode();if(file)await addCode([file],version);
+  });
+  via(el.pickcode,'change',()=>{const list=[...el.pickcode.files];el.pickcode.value='';activity(()=>importLocal(list)).catch(e=>message(e.message,'error'));});
+  via(element,'drop',e=>{
+    const list=[...e.dataTransfer.files];if(!list.length)return;e.preventDefault();
+    activity(async()=>{
+      if(list.every(f=>/\.m$/i.test(f.name)))return importLocal(list);
+      if(list.length===1&&/\.mathcraft$/i.test(list[0].name))return importFile('sheet',list[0]);
+      if(list.length===1&&sheet?.version===1&&/\.csv$/i.test(list[0].name))return importFile('csv',list[0]);
+      throw Error('Drop .m files, a worksheet, or measurement CSV in the rotating-unbalance lab.');
+    }).catch(err=>message(err.message,'error'));
+  });
   const ready=(async()=>{
-    const [model,script,csv]=await Promise.all(['./lab/unbalance.m','./examples/inspect-response.m','./examples/synthetic-run.csv'].map(n=>readAsset(n,signal)));
-    if(signal.aborted)return;apply(defaultSheet(model,script,csv));
+    apply(null);
     const launch=files.launch();
-    if(launch)await openAccount(launch);else await run();
+    if(launch)await openAccount(launch);
   })().catch(e=>{if(!signal.aborted){element.dataset.state='error';message(e.message,'error');throw e;}}).finally(()=>{
     pending--;element.inert=paused;if(!element.dataset.state)element.dataset.state='ready';changed();
   });

@@ -62,6 +62,7 @@ export function readSheet(text) {
   boundedText(text,LIMIT,'Worksheet');
   let s;
   try { s=JSON.parse(text); } catch { throw Error('Invalid worksheet JSON.'); }
+  if (s?.format === 'mathcraft' && s.version === 2) return codeSheet(s.title,s.files,s.entry);
   requireValue(s?.format === 'mathcraft' && s.version === 1,'Unsupported MathCraft worksheet format or version.');
   const engine=boundedText(s.engine,256,'Engine identifier');
   let reference=null;
@@ -101,4 +102,22 @@ export function compareResults(a,b) {
 }
 export function residualCSV(rows) {
   return 'rpm,measured_mm,predicted_mm,residual_mm,predicted_phase_deg\n'+rows.map(row=>row.map(x=>x??'').join(',')).join('\n')+'\n';
+}
+
+export function validFilename(name) {
+  if (typeof name !== 'string' || !/^[A-Za-z][A-Za-z0-9_]{0,62}\.m$/.test(name))
+    throw Error('Use an Octave file name starting with a letter and ending in .m.');
+  return name;
+}
+export function codeSheet(title,files,entry=files[0]?.name) {
+  if (!Array.isArray(files) || !files.length || files.length>32) throw Error('A lab can contain 1 to 32 code files.');
+  const names=new Set();
+  const checked=files.map(file=>{
+    const name=validFilename(file?.name);
+    if(names.has(name)) throw Error('Duplicate file: '+name);
+    names.add(name);
+    return {name,source:boundedText(file.source,65536,'Octave code')};
+  });
+  if(!names.has(entry))throw Error('The entry script is missing.');
+  return {format:'mathcraft',version:2,engine:ENGINE,title:boundedText(title,120,'Lab name'),entry,files:checked};
 }

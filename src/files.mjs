@@ -5,6 +5,10 @@ function pathOf(path) {
       !path.toLowerCase().endsWith('.mathcraft')) throw Error('Choose a .mathcraft file inside your account.');
   return path;
 }
+export function sheetName(sheet) {
+  if(sheet.version===1)return 'rotating-unbalance.mathcraft';
+  return (sheet.title.replace(/[^a-z0-9_ -]/gi,'').trim() || 'Untitled lab')+'.mathcraft';
+}
 export function accountFiles(host,signal) {
   const storage=host?.storage, owner=storage?.signedInSubject?.(), session=host?.session?.();
   const hosted=Boolean(owner && storage?.accountFileContext && storage?.pickAccountFile);
@@ -59,7 +63,7 @@ export function accountFiles(host,signal) {
       if (!path) {
         const folder=await storage.pickAccountFile({foldersOnly:true,signal}); live();
         if (folder==null) return;
-        const answer=await host.ui.prompt('File name',{title:'Save worksheet',value:'rotating-unbalance.mathcraft',confirmLabel:'Save',signal}); live();
+        const answer=await host.ui.prompt('File name',{title:'Save worksheet',value:sheetName(sheet),confirmLabel:'Save',signal}); live();
         if (answer==null) return;
         const name=answer.trim();
         if (!name || name.includes('/')) throw Error('Enter a single file name.');
@@ -84,7 +88,21 @@ export function accountFiles(host,signal) {
       bind({path,sha256:saved.sha256}); return path;
     });
   }
-  return {hosted,launch,save,open,detach(){if(hosted)bind(null);}};
+  async function importCode() {
+    return exclusive(async()=>{
+      const choice=await storage.pickAccountFile({extensions:['.m'],signal});live();
+      if(choice==null)return;
+      const path=choice.replace(/^\//,'');
+      if(!/\.m$/i.test(path)||path.split('/').some(part=>!part||part==='.'||part==='..')||path.includes('\\'))throw Error('Choose an Octave file in your account.');
+      const ctx=await storage.accountFileContext();live(ctx);
+      const file=await ctx.files.read(path,{signal});live(ctx);
+      const data=file.data;
+      if((data instanceof Blob?data.size:data?.byteLength)>65536)throw Error('Code file exceeds 64 KiB.');
+      const bytes=data instanceof Blob?await data.arrayBuffer():data;live(ctx);
+      return {name:path.split('/').pop(),source:new TextDecoder('utf-8',{fatal:true}).decode(bytes)};
+    });
+  }
+  return {hosted,launch,save,open,importCode,detach(){if(busy)throw Error('Finish the file operation first.');if(hosted)bind(null);}};
 }
 export function download(doc,name,text,type='text/plain') {
   const a=doc.createElement('a'), url=URL.createObjectURL(new Blob([text],{type}));

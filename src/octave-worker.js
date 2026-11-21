@@ -52,6 +52,21 @@ async function handle({id,kind,payload}) {
     clearLog();
     if (kind==='version') { self.postMessage({id,data:'7.2.0'}); return; }
     const {source,params,maxRPM,measurements=[],script}=payload;
+    if (kind==='code') {
+      m.FS.mkdir('/project');
+      for(const file of payload.files)m.FS.writeFile('/project/'+file.name,file.source);
+      m.eval_string("cd('/project');");
+      streaming=id;lastStream=0;
+      call(m,'source',['/project/'+payload.entry],0);
+      const text=output.join('\n');
+      let points=[];
+      if(call(m,'exist',['lab_x','var'],1)[0] && call(m,'exist',['lab_y','var'],1)[0]) {
+        call(m,'eval',["assert(isnumeric(lab_x) && isnumeric(lab_y) && isreal(lab_x) && isreal(lab_y) && isvector(lab_x) && isvector(lab_y) && numel(lab_x)==numel(lab_y) && numel(lab_x)<=20000)"],0);
+        const [xy]=call(m,'eval',["[lab_x(:),lab_y(:)]"],1);
+        points=rows(xy);
+      }
+      self.postMessage({id,data:{text,points}});return;
+    }
     if (currentSource!==source) {
       m.FS.writeFile('/work/unbalance.m',source);
       m.eval_string("clear unbalance; rehash;");

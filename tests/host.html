@@ -18,7 +18,7 @@ function open(launchContext){
 }
 const wait=async(fn)=>{const end=performance.now()+12000;while(!fn()){if(performance.now()>end)throw Error('Timed out waiting for '+fn);await new Promise(r=>setTimeout(r,25));}};
 try{
-  const one=open();await one.a.ready;assert(one.get('amp').textContent==='10','default');
+  const one=open();await one.a.ready;one.a.element.querySelector('[data-lab=rotor]').click();await wait(()=>one.get('amp').textContent==='10' && !one.a.lifecycle.snapshot().pending);assert(one.get('amp').textContent==='10','default');
   one.get('pin').click();await wait(()=>one.a.lifecycle.snapshot().dirty);
   one.get('damping').value='10';one.get('damping').dispatchEvent(new Event('input'));await wait(()=>one.get('amp').textContent==='5');
   one.get('save').click();await wait(()=>one.w.binding?.sha256 && !one.a.lifecycle.snapshot().pending);

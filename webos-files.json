@@ -2,6 +2,7 @@
   "app.mjs",
   "icon.svg",
   "src/chart.mjs",
+  "src/labs.mjs",
   "src/files.mjs",
   "src/kernel.mjs",
   "src/octave-worker.js",
