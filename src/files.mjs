@@ -2,7 +2,7 @@ import {LIMIT,readSheet,serialize} from './worksheet.mjs';
 const digest = value => typeof value==='string' && /^[a-f0-9]{64}$/.test(value);
 function pathOf(path) {
   if (typeof path!=='string' || path.length>2048 || /[\\\x00-\x1f]/.test(path) || path.split('/').some(v=>!v||v==='.'||v==='..') ||
-      !path.toLowerCase().endsWith('.mathcraft')) throw Error('Choose a .mathcraft file inside your account.');
+      !path.toLowerCase().endsWith('.mathcraft')) throw Error('Choose a .mathcraft file inside Files.');
   return path;
 }
 export function sheetName(sheet) {
@@ -10,11 +10,15 @@ export function sheetName(sheet) {
   return (sheet.title.replace(/[^a-z0-9_ -]/gi,'').trim() || 'Untitled lab')+'.mathcraft';
 }
 export function accountFiles(host,signal) {
-  const storage=host?.storage, owner=storage?.signedInSubject?.(), session=host?.session?.();
-  const hosted=Boolean(owner && storage?.accountFileContext && storage?.pickAccountFile);
+  const storage=host?.storage, session=host?.session?.();
+  const temporary=session?.public?.kind==='anonymous';
+  const getOwner=temporary ? storage?.workspaceOwner : storage?.signedInSubject;
+  const fileContext=temporary ? storage?.workspaceFileContext : storage?.accountFileContext;
+  const pickFile=temporary ? storage?.pickWorkspaceFile : storage?.pickAccountFile;
+  const owner=getOwner?.call(storage), hosted=Boolean(owner && fileContext && pickFile);
   let bound=null, busy=false;
   function live(ctx) {
-    if (signal.aborted || !hosted || storage.signedInSubject()!==owner || host.session?.()!==session ||
+    if (signal.aborted || !hosted || getOwner.call(storage)!==owner || host.session?.()!==session ||
         (ctx && (!ctx.valid() || ctx.owner!==owner))) throw Error('The original account window is no longer active.');
   }
   function bind(resource) {
@@ -37,12 +41,12 @@ export function accountFiles(host,signal) {
     return exclusive(async()=>{
       let path=target?.path;
       if (!path) {
-        const choice=await storage.pickAccountFile({extensions:['.mathcraft'],signal});
+        const choice=await pickFile.call(storage,{extensions:['.mathcraft'],signal});
         live(); if (choice==null) return;
         path=choice.replace(/^\//,'');
       }
       path=pathOf(path);
-      const ctx=await storage.accountFileContext(); live(ctx);
+      const ctx=await fileContext.call(storage); live(ctx);
       const file=await ctx.files.read(path,{signal}); live(ctx);
       if (!digest(file.sha256) || (target?.sha256 && target.sha256!==file.sha256)) throw Error('This worksheet revision changed. Reopen it from Files.');
       const raw=file.data;
@@ -61,7 +65,7 @@ export function accountFiles(host,signal) {
       const content=serialize(sheet);
       let path=as?null:bound?.path, expected=as?null:bound?.sha256;
       if (!path) {
-        const folder=await storage.pickAccountFile({foldersOnly:true,signal}); live();
+        const folder=await pickFile.call(storage,{foldersOnly:true,signal}); live();
         if (folder==null) return;
         const answer=await host.ui.prompt('File name',{title:'Save worksheet',value:sheetName(sheet),confirmLabel:'Save',signal}); live();
         if (answer==null) return;
@@ -69,7 +73,7 @@ export function accountFiles(host,signal) {
         if (!name || name.includes('/')) throw Error('Enter a single file name.');
         path=pathOf([folder.replace(/^\/|\/$/g,''),name+(/\.mathcraft$/i.test(name)?'':'.mathcraft')].filter(Boolean).join('/'));
       }
-      const ctx=await storage.accountFileContext(); live(ctx);
+      const ctx=await fileContext.call(storage); live(ctx);
       if (!expected) {
         try {
           const version=await ctx.files.version(path); live(ctx);
@@ -90,11 +94,11 @@ export function accountFiles(host,signal) {
   }
   async function importCode() {
     return exclusive(async()=>{
-      const choice=await storage.pickAccountFile({extensions:['.m'],signal});live();
+      const choice=await pickFile.call(storage,{extensions:['.m'],signal});live();
       if(choice==null)return;
       const path=choice.replace(/^\//,'');
-      if(!/\.m$/i.test(path)||path.split('/').some(part=>!part||part==='.'||part==='..')||path.includes('\\'))throw Error('Choose an Octave file in your account.');
-      const ctx=await storage.accountFileContext();live(ctx);
+      if(!/\.m$/i.test(path)||path.split('/').some(part=>!part||part==='.'||part==='..')||path.includes('\\'))throw Error('Choose an Octave file in Files.');
+      const ctx=await fileContext.call(storage);live(ctx);
       const file=await ctx.files.read(path,{signal});live(ctx);
       const data=file.data;
       if((data instanceof Blob?data.size:data?.byteLength)>65536)throw Error('Code file exceeds 64 KiB.');
@@ -102,7 +106,7 @@ export function accountFiles(host,signal) {
       return {name:path.split('/').pop(),source:new TextDecoder('utf-8',{fatal:true}).decode(bytes)};
     });
   }
-  return {hosted,launch,save,open,importCode,detach(){if(busy)throw Error('Finish the file operation first.');if(hosted)bind(null);}};
+  return {hosted,temporary,launch,save,open,importCode,detach(){if(busy)throw Error('Finish the file operation first.');if(hosted)bind(null);}};
 }
 export function download(doc,name,text,type='text/plain') {
   const a=doc.createElement('a'), url=URL.createObjectURL(new Blob([text],{type}));

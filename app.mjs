@@ -128,7 +128,7 @@ export function mount(host={}) {
   async function save(as=false){
     if(!files.hosted)return localSave();
     usable();const r=rev,path=await files.save(sheet,as);
-    if(path){if(r===rev){dirty=false;changed();}message('Saved '+path+(r===rev?' to account Files.':'. Later edits are still unsaved.'));}
+    if(path){if(r===rev){dirty=false;changed();}message('Saved '+path+(r===rev?(files.temporary?' in this tab.':' to account Files.'):'. Later edits are still unsaved.'));}
   }
   async function allowReplace(){
     if(!dirty)return true;
