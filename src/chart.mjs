@@ -13,6 +13,11 @@ function nearest(rows,x) {
   for (const row of rows) if (!best || Math.abs(row[0]-x)<Math.abs(best[0]-x)) best=row;
   return best;
 }
+export function chartPalette(canvas) {
+  const style=getComputedStyle(canvas);
+  const theme=style.colorScheme==='dark'?'dark':'light';
+  return name=>style.getPropertyValue('--chart-'+name+'-'+theme).trim();
+}
 export function makeChart(canvas,readout,signal) {
   let data=null, mode='amplitude', focus=null, transform;
   const ctx=canvas.getContext('2d');
@@ -20,10 +25,7 @@ export function makeChart(canvas,readout,signal) {
     if (!ctx || !canvas.clientWidth || !canvas.clientHeight) return;
     const w=canvas.clientWidth,h=canvas.clientHeight,dpr=Math.min(window.devicePixelRatio||1,3);
     canvas.width=Math.round(w*dpr); canvas.height=Math.round(h*dpr); ctx.setTransform(dpr,0,0,dpr,0,0);
-    const style=getComputedStyle(canvas);
-    const theme=style.colorScheme==='dark'?'dark':'light';
-    const colorOf=name=>style.getPropertyValue('--chart-'+name+'-'+theme).trim();
-    const l=w<430?53:66,r=w-16,t=28,b=h-38;
+    const colorOf=chartPalette(canvas);    const l=w<430?53:66,r=w-16,t=28,b=h-38;
     const label=(s,x,y,align='left',color=colorOf('text'))=>{ctx.fillStyle=color;ctx.textAlign=align;ctx.fillText(s,x,y);};
     const line=(x,y,x2,y2,color)=>{ctx.beginPath();ctx.strokeStyle=color;ctx.moveTo(x,y);ctx.lineTo(x2,y2);ctx.stroke();};
     const info=modes[mode]; ctx.font='12px system-ui';ctx.fillStyle=colorOf('background');ctx.fillRect(0,0,w,h);

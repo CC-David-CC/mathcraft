@@ -1,5 +1,5 @@
 import {markup} from './src/view.mjs';
-import {makeChart} from './src/chart.mjs';
+import {chartPalette,makeChart} from './src/chart.mjs';
 import {labs} from './src/labs.mjs';
 import {accountFiles,download,sheetName} from './src/files.mjs';
 import {Kernel} from './src/kernel.mjs';
@@ -246,10 +246,12 @@ export function mount(host={}) {
     const finite=points.filter(p=>p.every(Number.isFinite));
     const xs=finite.map(p=>p[0]),ys=finite.map(p=>p[1]);
     const left=Math.min(...xs),right=Math.max(...xs),low=Math.min(...ys),high=Math.max(...ys);
-    const ctx=canvas.getContext('2d');ctx.clearRect(0,0,800,280);ctx.font='14px sans-serif';ctx.fillStyle='#274b41';
+    const ctx=canvas.getContext('2d'), colorOf=chartPalette(canvas);
+    ctx.fillStyle=colorOf('background');ctx.fillRect(0,0,800,280);
+    ctx.font='14px sans-serif';ctx.fillStyle=colorOf('text');
     ctx.fillText(fmt(left),50,274);ctx.textAlign='right';ctx.fillText(fmt(right),790,274);ctx.textAlign='left';
     ctx.fillText(fmt(high),2,20);ctx.fillText(fmt(low),2,250);
-    ctx.strokeStyle='#bccdc8';ctx.strokeRect(50,10,740,244);ctx.strokeStyle='#00776e';ctx.lineWidth=2;ctx.beginPath();
+    ctx.strokeStyle=colorOf('marker');ctx.strokeRect(50,10,740,244);ctx.strokeStyle=colorOf('current');ctx.lineWidth=2;ctx.beginPath();
     let first=true;
     for(const [x,y] of points){
       if(!Number.isFinite(x)||!Number.isFinite(y)){first=true;continue;}
