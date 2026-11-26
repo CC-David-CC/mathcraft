@@ -27,3 +27,19 @@ The Moto G 5G completed the same workflow in landscape. Touch-tablet emulation
 at 820 × 1050 CSS pixels and desktop Chromium completed the hosted guest
 workflow. A fresh signed-in desktop session reopened the server-backed
 worksheet and replayed its reference in isolated WebOS.
+
+## Desktop coverage
+
+Desktop Chromium passed eight of the ten selected workflows.
+
+- Run the stock rotor model and confirm the natural speed and displacement.
+- Pin a reference, edit damping, and compare the curves.
+- Save a worksheet with the expected extension.
+- Reopen the worksheet from Files, including from a fresh signed-in session.
+- Replay the reference after reopening.
+- Fit damping against the 15 synthetic observations to about 7.9982%.
+- Switch between the phase and residual graph views.
+- Execute an editable Octave scratch script and verify its determinant of 5.
+
+Custom measurement import/export and multi-file Octave project execution
+remain open for this device review.
